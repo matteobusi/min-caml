@@ -1,45 +1,51 @@
 let limit = ref 1000
+let tprint = ref false
 
-let rec iter n e = (* ºÇÅ¬²½½èÍý¤ò¤¯¤ê¤«¤¨¤¹ (caml2html: main_iter) *)
+let rec iter n e = (* ï¿½ï¿½Å¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ò¤¯¤ê¤«ï¿½ï¿½ï¿½ï¿½ (caml2html: main_iter) *)
   Format.eprintf "iteration %d@." n;
   if n = 0 then e else
   let e' = Elim.f (ConstFold.f (Inline.f (Assoc.f (Beta.f e)))) in
   if e = e' then e else
   iter (n - 1) e'
 
-let lexbuf outchan l = (* ¥Ð¥Ã¥Õ¥¡¤ò¥³¥ó¥Ñ¥¤¥ë¤·¤Æ¥Á¥ã¥ó¥Í¥ë¤Ø½ÐÎÏ¤¹¤ë (caml2html: main_lexbuf) *)
+let lexbuf outchan l = (* ï¿½Ð¥Ã¥Õ¥ï¿½ï¿½ò¥³¥ï¿½Ñ¥ï¿½ï¿½ë¤·ï¿½Æ¥ï¿½ï¿½ï¿½ï¿½Í¥ï¿½Ø½ï¿½ï¿½Ï¤ï¿½ï¿½ï¿½ (caml2html: main_lexbuf) *)
   Id.counter := 0;
   Typing.extenv := M.empty;
-  Emit.f outchan
-    (RegAlloc.f
-       (Simm.f
-          (Virtual.f
-             (Closure.f
-                (iter !limit
-                   (Alpha.f
-                      (KNormal.f
-                         (Typing.f
-                            (Parser.exp Lexer.token l)))))))))
+  if !tprint then
+      Printf.fprintf outchan "%s" (Syntax.string_of_e (Typing.f (Parser.exp Lexer.token l)))
+  else
+    Emit.f outchan
+      (RegAlloc.f
+        (Simm.f
+            (Virtual.f
+              (Closure.f
+                  (iter !limit
+                    (Alpha.f
+                        (KNormal.f
+                          (Typing.f
+                              (Parser.exp Lexer.token l)))))))))
 
-let string s = lexbuf stdout (Lexing.from_string s) (* Ê¸»úÎó¤ò¥³¥ó¥Ñ¥¤¥ë¤·¤ÆÉ¸½à½ÐÎÏ¤ËÉ½¼¨¤¹¤ë (caml2html: main_string) *)
+let string s = lexbuf stdout (Lexing.from_string s) (* Ê¸ï¿½ï¿½ï¿½ï¿½ò¥³¥ï¿½Ñ¥ï¿½ï¿½ë¤·ï¿½ï¿½É¸ï¿½ï¿½ï¿½ï¿½Ï¤ï¿½É½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ (caml2html: main_string) *)
 
-let file f = (* ¥Õ¥¡¥¤¥ë¤ò¥³¥ó¥Ñ¥¤¥ë¤·¤Æ¥Õ¥¡¥¤¥ë¤Ë½ÐÎÏ¤¹¤ë (caml2html: main_file) *)
+let file f = (* ï¿½Õ¥ï¿½ï¿½ï¿½ï¿½ï¿½ò¥³¥ï¿½Ñ¥ï¿½ï¿½ë¤·ï¿½Æ¥Õ¥ï¿½ï¿½ï¿½ï¿½ï¿½Ë½ï¿½ï¿½Ï¤ï¿½ï¿½ï¿½ (caml2html: main_file) *)
   let inchan = open_in (f ^ ".ml") in
-  let outchan = open_out (f ^ ".s") in
+  let outchan = open_out (f ^ (if !tprint then ".t.ml" else ".s")) in
   try
     lexbuf outchan (Lexing.from_channel inchan);
     close_in inchan;
     close_out outchan;
   with e -> (close_in inchan; close_out outchan; raise e)
 
-let () = (* ¤³¤³¤«¤é¥³¥ó¥Ñ¥¤¥é¤Î¼Â¹Ô¤¬³«»Ï¤µ¤ì¤ë (caml2html: main_entry) *)
+let () = (* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½é¥³ï¿½ï¿½Ñ¥ï¿½ï¿½ï¿½Î¼Â¹Ô¤ï¿½ï¿½ï¿½ï¿½Ï¤ï¿½ï¿½ï¿½ï¿½ (caml2html: main_entry) *)
   let files = ref [] in
   Arg.parse
     [("-inline", Arg.Int(fun i -> Inline.threshold := i), "maximum size of functions inlined");
-     ("-iter", Arg.Int(fun i -> limit := i), "maximum number of optimizations iterated")]
+     ("-iter", Arg.Int(fun i -> limit := i), "maximum number of optimizations iterated");
+     ("-tprint", Arg.Unit (fun _ -> tprint := true), "determines if the typed tree is printed or if the file is compiled")]
     (fun s -> files := !files @ [s])
     ("Mitou Min-Caml Compiler (C) Eijiro Sumii\n" ^
-     Printf.sprintf "usage: %s [-inline m] [-iter n] ...filenames without \".ml\"..." Sys.argv.(0));
+    "2020 - Matteo Busi added typed ast printer\n" ^
+     Printf.sprintf "usage: %s [-tprint] [-inline m] [-iter n] ...filenames without \".ml\"..." Sys.argv.(0));
   List.iter
     (fun f -> ignore (file f))
     !files

@@ -1,0 +1,1 @@
+(print_int  (int_of_float  ((((sin  (cos  (sqrt  (abs_float  -12.300000)))) +. 4.500000) -. ((6.700000 *. 8.900000) /. 1.234568)) *. (float_of_int  1000000))))
